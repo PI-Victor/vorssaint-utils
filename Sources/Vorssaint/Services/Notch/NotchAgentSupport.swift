@@ -197,6 +197,12 @@ enum NotchAgentSupport {
     /// points, less its shoulder inset, which leaves room for two at the size
     /// a ring still reads.
     static let restingLimitRings = 2
+    /// Two rings have to read as two: at 11 points with a hairline between
+    /// them they touched, and a nearly full ring beside a spent one looked
+    /// like one broken glyph.
+    static let restingRingSide: CGFloat = 9
+    static let restingRingGap: CGFloat = 3
+    static let restingRingLine: CGFloat = 1.5
 
     static func showsLiveActivity(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchAgentsLiveActivity) as? Bool ?? true)

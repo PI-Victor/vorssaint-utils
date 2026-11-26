@@ -144,12 +144,13 @@ struct NotchAgentRestingWing: View {
                 // One ring per account that reports an allowance, in the
                 // order they bind: the closed island used to draw only the
                 // most spent, which hid every other agent.
-                HStack(spacing: readings.count > 1 ? 1.5 : 2) {
+                HStack(spacing: NotchAgentSupport.restingRingGap) {
                     ForEach(readings, id: \.provider) { reading in
                         NotchAgentRing(value: used ? reading.window.usedFraction : reading.window.remainingFraction,
                                        tint: agentLimitTint(reading.provider, usedFraction: reading.window.usedFraction),
-                                       lineWidth: readings.count > 1 ? 1.8 : 2)
-                            .frame(width: 11, height: 11)
+                                       lineWidth: readings.count > 1 ? NotchAgentSupport.restingRingLine : 2)
+                            .frame(width: NotchAgentSupport.restingRingSide,
+                                   height: NotchAgentSupport.restingRingSide)
                     }
                 }
                 .accessibilityElement(children: .ignore)

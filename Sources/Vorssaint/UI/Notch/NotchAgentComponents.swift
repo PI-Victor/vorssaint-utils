@@ -116,7 +116,9 @@ struct NotchAgentRing: View {
     var body: some View {
         let fraction = value.isFinite ? min(1, max(0, value)) : 0
         ZStack {
-            Circle().stroke(.white.opacity(0.18), lineWidth: lineWidth)
+            // A ring at 96% leaves a sliver of track; at 0.18 that sliver was
+            // invisible and the ring read as a solid dot.
+            Circle().stroke(.white.opacity(0.28), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: fraction)
                 .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))

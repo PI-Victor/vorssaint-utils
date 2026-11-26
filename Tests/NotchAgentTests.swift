@@ -2692,6 +2692,14 @@ enum NotchAgentTests {
                         && NotchAgentSupport.restingLimit(everyAccount, focus: .mostUsed, now: now)?.provider == .claude,
                      "the chosen window still narrows the list, and the number speaks for the most spent")
 
+        // Two rings must not touch: 9-point rings with a 3-point gap read as
+        // two, where 11 with 1.5 read as one broken glyph.
+        suite.expect(NotchAgentSupport.restingRingSide * 2 + NotchAgentSupport.restingRingGap
+                        + NotchAgentSupport.restingRingLine * 2 <= 44,
+                     "two resting rings and the gap between them fit the 44-point wing")
+        suite.expect(NotchAgentSupport.restingRingGap >= 2.5 && NotchAgentSupport.restingRingLine <= 1.6,
+                     "the gap between two rings is wide enough to separate them at their size")
+
         let expiredAt = now.addingTimeInterval(86_401)
         suite.expect(NotchAgentSupport.stripReading(limited, readout: .limit, display: .remaining, now: expiredAt)
                         == AgentFormat.percent(1),
