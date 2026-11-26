@@ -2676,6 +2676,22 @@ enum NotchAgentTests {
                         && NotchAgentSupport.restingLimit(resting, focus: .mostUsed, now: now)
                             .map { $0.provider == .claude && $0.window.usedPercent == 95 } == true,
                      "the resting island falls back to the most used window only when no account reports the chosen one")
+        // Ollama Cloud's credits are a second account with its own allowance;
+        // the closed island used to draw only the most spent, which hid it.
+        let ollamaCredits = AgentLimits(provider: .ollama, windows: [
+            AgentLimitWindow(id: "ollama:credits", kind: .other, minutes: nil, scope: nil, usedPercent: 4,
+                             resetsAt: now.addingTimeInterval(86_400 * 30))], observedAt: now, source: .account)
+        let everyAccount = AgentUsageSummary.snapshot(records: [], limits: [.claude: both, .codex: codexWeek,
+                                                                          .ollama: ollamaCredits],
+                                                     live: [], plans: [:], providers: [.claude, .codex, .ollama], now: now)
+        let ordered = NotchAgentSupport.restingLimits(everyAccount, focus: .mostUsed, now: now)
+        suite.expect(ordered.map(\.provider) == [.claude, .codex, .ollama]
+                        && ordered.map { $0.window.usedPercent } == [95, 70, 4],
+                     "every account that reports an allowance gets a resting reading, most spent first")
+        suite.expect(NotchAgentSupport.restingLimits(everyAccount, focus: .session, now: now).map(\.provider) == [.claude]
+                        && NotchAgentSupport.restingLimit(everyAccount, focus: .mostUsed, now: now)?.provider == .claude,
+                     "the chosen window still narrows the list, and the number speaks for the most spent")
+
         let expiredAt = now.addingTimeInterval(86_401)
         suite.expect(NotchAgentSupport.stripReading(limited, readout: .limit, display: .remaining, now: expiredAt)
                         == AgentFormat.percent(1),

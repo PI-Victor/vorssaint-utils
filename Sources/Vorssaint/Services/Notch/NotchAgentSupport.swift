@@ -167,20 +167,36 @@ enum NotchAgentSupport {
         return limits?.windows.first { $0.kind == kind && $0.scope == nil }.map { AgentLimitSupport.current($0, at: now) }
     }
 
-    /// The resting island's allowance across every account: the most spent
-    /// of the chosen windows, or of each account's most used window while no
-    /// account reports the chosen one.
+    /// The resting island's allowance across every account: the chosen
+    /// windows, or each account's most used window while no account reports
+    /// the chosen one, with the most spent first.
+    static func restingLimits(_ snapshot: AgentUsageSnapshot, focus: NotchAgentLimitFocus,
+                              now: Date) -> [(provider: AgentProvider, window: AgentLimitWindow)] {
+        let chosen = snapshot.limits.compactMap { provider, limits in
+            chosenLimit(limits, focus: focus, now: now).map { (provider: provider, window: $0) }
+        }
+        let readings = chosen.isEmpty
+            ? snapshot.limits.compactMap { provider, limits in
+                AgentLimitSupport.binding(limits, now: now).map { (provider: provider, window: $0) }
+            }
+            : chosen
+        return readings.sorted {
+            $0.window.usedPercent != $1.window.usedPercent ? $0.window.usedPercent > $1.window.usedPercent
+                : $0.provider.rawValue < $1.provider.rawValue
+        }
+    }
+
+    /// The one allowance the resting island's number speaks for: the most
+    /// spent of `restingLimits`.
     static func restingLimit(_ snapshot: AgentUsageSnapshot, focus: NotchAgentLimitFocus,
                              now: Date) -> (provider: AgentProvider, window: AgentLimitWindow)? {
-        func mostSpent(_ pick: (AgentLimits) -> AgentLimitWindow?) -> (provider: AgentProvider, window: AgentLimitWindow)? {
-            snapshot.limits.compactMap { provider, limits in pick(limits).map { (provider: provider, window: $0) } }.max {
-                $0.window.usedPercent != $1.window.usedPercent ? $0.window.usedPercent < $1.window.usedPercent
-                    : $0.provider.rawValue > $1.provider.rawValue
-            }
-        }
-        return mostSpent { chosenLimit($0, focus: focus, now: now) }
-            ?? mostSpent { AgentLimitSupport.binding($0, now: now) }
+        restingLimits(snapshot, focus: focus, now: now).first
     }
+
+    /// How many rings the resting island's leading wing holds: the wing is 44
+    /// points, less its shoulder inset, which leaves room for two at the size
+    /// a ring still reads.
+    static let restingLimitRings = 2
 
     static func showsLiveActivity(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && (defaults.object(forKey: DefaultsKey.notchAgentsLiveActivity) as? Bool ?? true)

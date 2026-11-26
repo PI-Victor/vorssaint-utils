@@ -134,19 +134,35 @@ struct NotchAgentRestingWing: View {
 
     @ViewBuilder private func content(now: Date) -> some View {
         let snapshot = usage.snapshot
-        let limit = NotchAgentSupport.restingLimit(snapshot, focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed, now: now)
+        let readings = Array(NotchAgentSupport.restingLimits(snapshot,
+                                                             focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed,
+                                                             now: now)
+            .prefix(NotchAgentSupport.restingLimitRings))
         let used = display == NotchAgentLimitDisplay.used.rawValue
-        if let limit {
-            let tint = agentLimitTint(limit.provider, usedFraction: limit.window.usedFraction)
+        if let limit = readings.first {
             if leading {
-                NotchAgentRing(value: used ? limit.window.usedFraction : limit.window.remainingFraction,
-                               tint: tint, lineWidth: 2)
-                    .frame(width: 11, height: 11)
+                // One ring per account that reports an allowance, in the
+                // order they bind: the closed island used to draw only the
+                // most spent, which hid every other agent.
+                HStack(spacing: readings.count > 1 ? 1.5 : 2) {
+                    ForEach(readings, id: \.provider) { reading in
+                        NotchAgentRing(value: used ? reading.window.usedFraction : reading.window.remainingFraction,
+                                       tint: agentLimitTint(reading.provider, usedFraction: reading.window.usedFraction),
+                                       lineWidth: readings.count > 1 ? 1.8 : 2)
+                            .frame(width: 11, height: 11)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(readings.map(\.provider.displayName).joined(separator: ", "))
+                .accessibilityValue(readings.map { reading in
+                    AgentFormat.percent(used ? reading.window.usedFraction : reading.window.remainingFraction)
+                }.joined(separator: ", "))
             } else {
                 Text(AgentFormat.percent(used ? limit.window.usedFraction : limit.window.remainingFraction))
                     .font(.system(size: 9, weight: .medium))
                     .monospacedDigit()
                     .lineLimit(1)
+                    .foregroundStyle(agentLimitTint(limit.provider, usedFraction: limit.window.usedFraction))
             }
         } else if let provider = AgentProvider.allCases.first(where: snapshot.seen.contains) {
             if leading {
