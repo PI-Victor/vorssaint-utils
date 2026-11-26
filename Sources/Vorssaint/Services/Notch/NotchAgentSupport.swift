@@ -98,6 +98,7 @@ enum NotchAgentSupport {
                 || (provider == .cursor && snapshot.cursorProjectsFound)
                 || (provider == .codex && hasCodexAccounts)
                 || (provider == .claude && hasClaudeAccount)
+                || (provider == .ollama && OllamaCloud.key() != nil)
         }
     }
 
@@ -108,6 +109,7 @@ enum NotchAgentSupport {
         case .opencode: return DefaultsKey.notchAgentsOpenCode
         case .copilot: return DefaultsKey.notchAgentsCopilot
         case .cursor: return DefaultsKey.notchAgentsCursor
+        case .ollama: return DefaultsKey.notchAgentsOllama
         }
     }
 
@@ -320,6 +322,9 @@ enum NotchAgentSupport {
         return shown.flatMap { card -> [NotchAgentTile] in
             switch card {
             case .limits: return providers.filter(\.reportsLimits).flatMap { provider -> [NotchAgentTile] in
+                // Ollama Cloud is read from its account like an added Codex
+                // home: one card, with its own check.
+                if provider == .ollama { return [NotchAgentTile(card: .limits, provider: provider, accountID: "ollama")] }
                 if provider == .claude, let claudeAccount {
                     return [NotchAgentTile(card: .limits, provider: provider, accountID: claudeAccount)]
                 }

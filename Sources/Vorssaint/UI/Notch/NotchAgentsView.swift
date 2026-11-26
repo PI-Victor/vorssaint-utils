@@ -8,6 +8,7 @@ struct NotchAgentsView: View {
     let size: CGSize
     @ObservedObject private var usage = AgentUsageService.shared
     @ObservedObject private var accounts = CodexProfileLimitsService.shared
+    @ObservedObject private var ollama = OllamaCloudService.shared
     @ObservedObject private var l10n = L10n.shared
     @Environment(\.notchSettingsPreview) private var preview
     @AppStorage(DefaultsKey.notchAgentsPeriod) private var period = AgentPeriod.today.rawValue
@@ -122,7 +123,13 @@ struct NotchAgentsView: View {
                                      accountName: provider == .claude ? claudeAccountName : nil)
             }
         case .spend:
-            NotchAgentSpendCard(snapshot: snapshot, providers: providers, period: shown, text: text)
+            // Ollama Cloud reports its own spend over the network, which the
+            // log-derived card cannot know about.
+            if providers == [.ollama], let cloud = ollama.snapshot {
+                NotchAgentOllamaCard(cloud: cloud, text: text, now: now)
+            } else {
+                NotchAgentSpendCard(snapshot: snapshot, providers: providers, period: shown, text: text)
+            }
         case .live:
             NotchAgentLiveCard(snapshot: snapshot, providers: providers, text: text)
         case .trend:
@@ -147,6 +154,15 @@ struct NotchAgentsView: View {
                 plan: usage.snapshot.plans[.claude]?.name, checking: usage.claudeAccountChecking,
                 failure: usage.claudeAccountFailure.map(text.claudeCode), refreshHint: strings.refreshHint,
                 checkLabel: strings.check, refresh: usage.checkClaudeAccount)
+        }
+        if tile.provider == .ollama {
+            let strings = FeatureStrings.codexAccounts(l10n.language)
+            return NotchAgentAccount(name: "ollama.com", limits: ollama.snapshot?.limits,
+                                     plan: ollama.snapshot.map { text.ollamaCredits($0.remainingUSD) },
+                                     checking: ollama.checking, failure: ollama.failure.map(text.ollamaFailure),
+                                     refreshHint: text.ollamaNoKey, checkLabel: strings.check) {
+                OllamaCloudService.shared.refreshNow()
+            }
         }
         guard let id = tile.accountID, let state = codexAccounts.first(where: { $0.id == id }) else { return nil }
         let strings = FeatureStrings.codexAccounts(l10n.language)
@@ -510,6 +526,73 @@ private struct NotchAgentInlineLabel: LabelStyle {
 }
 
 // MARK: Spending
+
+/// What ollama.com reports for the account: included credits, the week's spend,
+/// the tokens behind it and the models that used them. Ollama keeps no session
+/// log, so nothing here comes from this Mac.
+private struct NotchAgentOllamaCard: View {
+    let cloud: OllamaCloud.Snapshot
+    let text: NotchAgentStrings
+    let now: Date
+    @Environment(\.locale) private var locale
+
+    private func money(_ value: Double) -> String {
+        AgentFormat.cost(value, locale: locale)
+    }
+
+    var body: some View {
+        NotchAgentCardChrome {
+            VStack(alignment: .leading, spacing: 5) {
+                NotchAgentCardHeader(title: text.ollamaSpendLabel, symbol: AgentProvider.ollama.symbol,
+                                     tint: AgentProvider.ollama.tint, provider: .ollama) {
+                    Text(money(cloud.spendUSD))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(AgentProvider.ollama.tint)
+                }
+                credits
+                HStack(spacing: 10) {
+                    reading(text.ollamaRequestsLabel,
+                            value: cloud.requests.formatted(.number.locale(locale)))
+                    reading(text.ollamaOutputLabel, value: AgentFormat.tokens(cloud.outputTokens, locale: locale))
+                }
+                if let top = cloud.models.first {
+                    Text(top.model)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .help(money(top.spendUSD))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var credits: some View {
+        if cloud.allowanceUSD > 0 {
+            let used = cloud.usedPercent / 100
+            NotchAgentMeter(value: used, tint: agentLimitTint(.ollama, usedFraction: used), height: 4)
+                .accessibilityLabel(text.ollamaCreditsLabel)
+                .accessibilityValue(text.ollamaCredits(cloud.remainingUSD))
+            HStack(spacing: 4) {
+                Text(text.ollamaCredits(cloud.remainingUSD)).font(.system(size: 9.5)).foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                if let renews = cloud.renewsAt, renews > now {
+                    Text(renews.formatted(.dateTime.month(.abbreviated).day().locale(locale)))
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .lineLimit(1)
+        }
+    }
+
+    private func reading(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title).font(.system(size: 8.5)).foregroundStyle(.secondary).lineLimit(1)
+            Text(value).font(.system(size: 12, weight: .medium)).monospacedDigit().lineLimit(1)
+        }
+    }
+}
 
 /// The period it covers is chosen in the island's top row, which the trend,
 /// models and projects follow too; the plan multiples take its place here.

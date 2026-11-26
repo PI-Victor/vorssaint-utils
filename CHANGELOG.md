@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Ollama Cloud appears in the Dynamic Island's AI page: the included credits and their
+  renewal, the last seven days' spend, requests and output tokens, and the models that used
+  most. It is read from ollama.com with an API key you save in Dynamic Island settings; the
+  key stays in the app's private folder and nothing else about the account leaves the Mac.
+
 ## [3.4.5] - 2026-11-25
 
 ### Summary

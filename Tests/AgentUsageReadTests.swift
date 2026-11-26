@@ -152,6 +152,8 @@ enum AgentUsageReadTests {
                 case .opencode: entries += AgentLogParser.parseOpenCode(line, state: &cursor.state, now: now)
                 case .copilot: entries += AgentLogParser.parseCopilot(line, state: &cursor.state, now: now)
                 case .cursor: entries += AgentLogParser.parseCursor(line, state: &cursor.state, now: now)
+                // Ollama Cloud keeps no log, so no fixture carries one.
+                case .ollama: break
                 }
             }
             if provider == .copilot {

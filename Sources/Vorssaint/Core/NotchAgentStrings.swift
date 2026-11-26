@@ -102,6 +102,31 @@ struct NotchAgentStrings {
     let resetsCheckFailed: String
     let resetsHelp: String
 
+    /// Ollama Cloud's own words, in English until they are translated: a
+    /// wrong translation reads worse than none, and the provider is new.
+    var ollamaNoKey: String { "Add an Ollama Cloud API key in Settings" }
+    var ollamaSettingsTitle: String { "Ollama Cloud" }
+    var ollamaKeyLabel: String { "API key" }
+    var ollamaKeyHint: String { "Create one at ollama.com/settings/keys. It is kept in this app’s private folder and sent only to ollama.com." }
+    var ollamaSave: String { "Save" }
+    var ollamaForget: String { "Forget" }
+    var ollamaCreditsLabel: String { "Included credits" }
+    var ollamaSpendLabel: String { "Spend, 7 days" }
+    var ollamaRequestsLabel: String { "Requests" }
+    var ollamaOutputLabel: String { "Output tokens" }
+    var ollamaInvalidKey: String { "ollama.com refused the key" }
+
+    func ollamaCredits(_ remaining: Double) -> String { AgentFormat.cost(remaining) + " left" }
+
+    func ollamaFailure(_ failure: OllamaCloud.Failure) -> String {
+        switch failure {
+        case .invalidKey: return ollamaInvalidKey
+        case .rateLimited: return "Rate limited, trying again shortly"
+        case .offline: return "Offline"
+        case .server(let status): return "ollama.com answered \(status)"
+        }
+    }
+
     func tokens(_ count: String) -> String { String(format: tokensFormat, count) }
     func cached(_ share: String) -> String { String(format: cachedFormat, share) }
     func written(_ count: String) -> String { String(format: writtenFormat, count) }
@@ -193,8 +218,8 @@ extension FeatureStrings {
 extension NotchAgentStrings {
     static let enUS = NotchAgentStrings(
         title: "AI Agents",
-        hubDescription: "Follow plan limits, tokens, API value and the work in progress of Claude, Codex, OpenCode, GitHub Copilot and Cursor in the Dynamic Island.",
-        settingsDescription: "Reads the usage Claude Code, Codex, OpenCode, GitHub Copilot and Cursor record on this Mac and the plan limits the Claude app saves. Prompts, replies and files are never kept, and your usage never leaves your Mac.",
+        hubDescription: "Follow plan limits, tokens, API value and the work in progress of Claude, Codex, OpenCode, GitHub Copilot, Cursor and Ollama Cloud in the Dynamic Island.",
+        settingsDescription: "Reads the usage Claude Code, Codex, OpenCode, GitHub Copilot and Cursor record on this Mac and the plan limits the Claude app saves. Ollama Cloud is read from ollama.com with your own API key. Prompts, replies and files are never kept, and no usage is sent anywhere.",
         restingTitle: "AI limits",
         limitsCard: "Limits",
         spendCard: "Spending",

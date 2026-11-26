@@ -20,7 +20,8 @@ extension AgentHarnessReader {
 }
 
 extension AgentProvider {
-    /// The reader that parses this provider's logs.
+    /// The reader that parses this provider's logs. Ollama Cloud writes none:
+    /// its limits come from the API, so its reader never runs.
     var reader: any AgentHarnessReader {
         switch self {
         case .claude: ClaudeReader()
@@ -28,6 +29,14 @@ extension AgentProvider {
         case .opencode: OpenCodeReader()
         case .copilot: CopilotReader()
         case .cursor: CursorReader()
+        case .ollama: NoLogReader()
         }
     }
+}
+
+/// Stands in for an agent that keeps no session log on this Mac.
+struct NoLogReader: AgentHarnessReader {
+    var provider: AgentProvider { .ollama }
+
+    func parse(_ line: Data, state: inout AgentLogState, now: Date) -> [AgentLogEntry] { [] }
 }

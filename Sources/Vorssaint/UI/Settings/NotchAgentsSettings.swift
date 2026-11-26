@@ -8,12 +8,14 @@ import SwiftUI
 struct NotchAgentsSettingsControls: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var usage = AgentUsageService.shared
+    @ObservedObject private var ollamaService = OllamaCloudService.shared
     @AppStorage(DefaultsKey.notchAgentsClaude) private var claude = true
     @AppStorage(DefaultsKey.notchAgentsClaudeProfile) private var claudeProfile = ""
     @AppStorage(DefaultsKey.notchAgentsCodex) private var codex = true
     @AppStorage(DefaultsKey.notchAgentsOpenCode) private var opencode = true
     @AppStorage(DefaultsKey.notchAgentsCopilot) private var copilot = true
     @AppStorage(DefaultsKey.notchAgentsCursor) private var cursor = true
+    @AppStorage(DefaultsKey.notchAgentsOllama) private var ollama = true
     @AppStorage(DefaultsKey.notchAgentsCardOrder) private var cardOrder = ""
     @AppStorage(DefaultsKey.notchAgentsHiddenCards) private var hiddenCards = ""
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var limitDisplay = NotchAgentLimitDisplay.remaining.rawValue
@@ -31,6 +33,8 @@ struct NotchAgentsSettingsControls: View {
     @State private var claudeApp: URL?
     /// Read from the file while the section is off and the service is idle.
     @State private var claudeAppFileCheck: Date?
+    /// The Ollama Cloud key being typed, kept out of the file until saved.
+    @State private var ollamaKeyDraft = ""
 
     private var text: NotchAgentStrings { FeatureStrings.notchAgents(l10n.language) }
     private var locale: Locale { l10n.language.formattingLocale() }
@@ -52,8 +56,10 @@ struct NotchAgentsSettingsControls: View {
             providerRow(.opencode, isOn: $opencode)
             providerRow(.copilot, isOn: $copilot)
             providerRow(.cursor, isOn: $cursor)
+            providerRow(.ollama, isOn: $ollama)
             if claude { ClaudeAccountSettings() }
             if codex { CodexAccountsSettings() }
+            if ollama { ollamaCloudSettings }
 
             Divider()
             Text(text.cardsTitle).font(.subheadline.weight(.medium))
@@ -247,6 +253,61 @@ struct NotchAgentsSettingsControls: View {
         }
     }
 
+    /// The key Ollama Cloud is read with, and what the last check said. The
+    /// key is written only when Save is pressed, so a half-typed one is never
+    /// sent.
+    @ViewBuilder private var ollamaCloudSettings: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SettingsRow(symbol: "key", title: text.ollamaSettingsTitle, caption: text.ollamaKeyHint) {
+                HStack(spacing: 8) {
+                    SecureField(text.ollamaKeyLabel, text: $ollamaKeyDraft)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 190)
+                        .onSubmit(saveOllamaKey)
+                    Button(text.ollamaSave, action: saveOllamaKey)
+                        .disabled(!OllamaCloud.looksLikeKey(ollamaKeyDraft))
+                    if ollamaService.hasKey {
+                        Button(text.ollamaForget) {
+                            OllamaCloud.forgetKey()
+                            ollamaKeyDraft = ""
+                            ollamaService.forceSynchronize()
+                        }
+                    }
+                }
+            }
+            HStack(spacing: 8) {
+                if ollamaService.checking {
+                    ProgressView().controlSize(.small)
+                } else if let failure = ollamaService.failure {
+                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+                    Text(text.ollamaFailure(failure)).font(.caption).foregroundStyle(.secondary)
+                } else if let snapshot = ollamaService.snapshot {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    Text(checkDescription(snapshot)).font(.caption).foregroundStyle(.secondary)
+                } else if ollamaService.hasKey {
+                    Text(text.loading).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                if ollamaService.hasKey, !ollamaService.checking {
+                    Button(FeatureStrings.codexAccounts(l10n.language).check) { ollamaService.refreshNow() }
+                }
+            }
+            .font(.caption)
+            .padding(.leading, settingsRowTextInset)
+        }
+    }
+
+    private func checkDescription(_ snapshot: OllamaCloud.Snapshot) -> String {
+        text.ollamaCredits(snapshot.remainingUSD) + " · " + text.ollamaSpendLabel + " "
+            + snapshot.spendUSD.formatted(.currency(code: "USD").precision(.fractionLength(2)))
+    }
+
+    private func saveOllamaKey() {
+        guard OllamaCloud.save(key: ollamaKeyDraft) else { return }
+        ollamaKeyDraft = ""
+        ollamaService.refreshNow()
+    }
+
     /// Laid out like every other row, with the agent's own mark for an icon.
     private func providerRow(_ provider: AgentProvider, isOn: Binding<Bool>) -> some View {
         HStack(spacing: 12) {
@@ -263,7 +324,7 @@ struct NotchAgentsSettingsControls: View {
             Spacer(minLength: 12)
             // One agent stays on; turning the section off stops all.
             Toggle(provider.displayName, isOn: isOn).labelsHidden().toggleStyle(.switch)
-                .disabled(isOn.wrappedValue && [claude, codex, opencode, copilot, cursor].filter { $0 }.count <= 1)
+                .disabled(isOn.wrappedValue && [claude, codex, opencode, copilot, cursor, ollama].filter { $0 }.count <= 1)
         }
     }
 

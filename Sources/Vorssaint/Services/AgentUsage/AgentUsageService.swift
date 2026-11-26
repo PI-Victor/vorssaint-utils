@@ -147,6 +147,7 @@ final class AgentUsageService: ObservableObject {
         }
         syncPrices()
         refreshClaudeLimits()
+        OllamaCloudService.shared.synchronize()
     }
 
     /// Stops reading while the island is away, as with the display asleep or
@@ -186,6 +187,7 @@ final class AgentUsageService: ObservableObject {
 
     func stop(keepingProgress keeps: Bool = true, pausingAccounts: Bool = true) {
         if pausingAccounts { CodexProfileLimitsService.shared.pause() }
+        OllamaCloudService.shared.synchronize()
         pageVisible = false
         // A first read still going stops at its next chunk, so the wait
         // below is short.
@@ -249,10 +251,23 @@ final class AgentUsageService: ObservableObject {
         }
     }
 
+    /// A provider's allowance is no longer known, as after its key is removed.
+    func forgetLimits(_ provider: AgentProvider) {
+        guard running else { return }
+        queue.async { [self] in
+            guard readerSession >= 0 else { return }
+            store.clearLimits(provider)
+            previousLimits[provider] = nil
+            warned = warned.filter { $0.value.provider != provider }
+            schedulePublish()
+        }
+    }
+
     /// Reads local fallbacks immediately and asks Claude for fresh account
     /// limits. A Settings preview reads too, without counting as the page.
     func pageDidAppear(preview: Bool = false) {
         if !preview { pageVisible = true }
+        OllamaCloudService.shared.pageDidAppear()
         guard running else { return }
         refreshClaudeLimits(pageShows: true)
         queue.async { [self] in

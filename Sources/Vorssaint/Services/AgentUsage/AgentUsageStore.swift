@@ -642,7 +642,7 @@ struct AgentLogRoot: Equatable {
         return claude + [(AgentProvider.codex, ".codex/sessions"), (.codex, ".codex/archived_sessions"),
          (.opencode, ".local/share/opencode"), (.copilot, ".copilot/session-state"),
          (.cursor, ".cursor/projects")].compactMap { provider, path in
-            guard providers.contains(provider) else { return nil }
+            guard providers.contains(provider), provider.readsLogs else { return nil }
             return AgentLogRoot(provider: provider, url: canonical(home.appending(path: path, directoryHint: .isDirectory)))
         }
     }

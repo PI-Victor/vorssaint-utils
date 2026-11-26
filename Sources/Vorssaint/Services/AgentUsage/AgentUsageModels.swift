@@ -3,10 +3,11 @@
 
 import Foundation
 
-/// The coding agents whose session logs the island reads. Their names are
-/// product names and stay untranslated.
+/// The coding agents whose usage the island follows. Their names are product
+/// names and stay untranslated. Ollama Cloud keeps no session log on this Mac:
+/// its allowance and spend are read from ollama.com with the person's API key.
 enum AgentProvider: String, CaseIterable, Identifiable, Codable {
-    case claude, codex, opencode, copilot, cursor
+    case claude, codex, opencode, copilot, cursor, ollama
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ enum AgentProvider: String, CaseIterable, Identifiable, Codable {
         case .opencode: return "OpenCode"
         case .copilot: return "GitHub Copilot"
         case .cursor: return "Cursor"
+        case .ollama: return "Ollama Cloud"
         }
     }
 
@@ -27,11 +29,16 @@ enum AgentProvider: String, CaseIterable, Identifiable, Codable {
         case .opencode: return "terminal"
         case .copilot: return "infinity"
         case .cursor: return "cursorarrow"
+        case .ollama: return "cloud"
         }
     }
 
     /// Whether the provider records a plan allowance in its local logs.
     var reportsLimits: Bool { self != .copilot && self != .cursor }
+
+    /// Whether the provider writes session logs this Mac can read. Ollama
+    /// Cloud reports its allowance over the network instead.
+    var readsLogs: Bool { self != .ollama }
 }
 
 /// Token counts in the shape both logs can be reduced to. `input` excludes
