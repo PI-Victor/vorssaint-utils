@@ -2692,13 +2692,14 @@ enum NotchAgentTests {
                         && NotchAgentSupport.restingLimit(everyAccount, focus: .mostUsed, now: now)?.provider == .claude,
                      "the chosen window still narrows the list, and the number speaks for the most spent")
 
-        // Two rings must not touch: 9-point rings with a 3-point gap read as
-        // two, where 11 with 1.5 read as one broken glyph.
-        suite.expect(NotchAgentSupport.restingRingSide * 2 + NotchAgentSupport.restingRingGap
-                        + NotchAgentSupport.restingRingLine * 2 <= 44,
-                     "two resting rings and the gap between them fit the 44-point wing")
-        suite.expect(NotchAgentSupport.restingRingGap >= 2.5 && NotchAgentSupport.restingRingLine <= 1.6,
-                     "the gap between two rings is wide enough to separate them at their size")
+        // One ring and a dot per extra account: two rings side by side read as
+        // one broken glyph, because a nearly full ring is almost a solid circle.
+        let extra = NotchAgentSupport.restingLimitRings - 1
+        suite.expect(NotchAgentSupport.restingRingSide + NotchAgentSupport.restingRingGap
+                        + CGFloat(extra) * (NotchAgentSupport.restingDotSide + NotchAgentSupport.restingDotGap) <= 44,
+                     "the resting ring and its dots fit the 44-point wing")
+        suite.expect(NotchAgentSupport.restingDotSide < NotchAgentSupport.restingRingSide,
+                     "an extra account is a dot, smaller than the ring it follows")
 
         let expiredAt = now.addingTimeInterval(86_401)
         suite.expect(NotchAgentSupport.stripReading(limited, readout: .limit, display: .remaining, now: expiredAt)

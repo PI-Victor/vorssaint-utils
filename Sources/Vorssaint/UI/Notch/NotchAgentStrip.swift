@@ -144,13 +144,23 @@ struct NotchAgentRestingWing: View {
                 // One ring per account that reports an allowance, in the
                 // order they bind: the closed island used to draw only the
                 // most spent, which hid every other agent.
+                // One ring for the account closest to running out, and a dot
+                // for each account after it: two adjacent rings read as one
+                // broken glyph, since a nearly full ring is almost a solid
+                // circle. A dot cannot be mistaken for a ring.
                 HStack(spacing: NotchAgentSupport.restingRingGap) {
-                    ForEach(readings, id: \.provider) { reading in
-                        NotchAgentRing(value: used ? reading.window.usedFraction : reading.window.remainingFraction,
-                                       tint: agentLimitTint(reading.provider, usedFraction: reading.window.usedFraction),
-                                       lineWidth: readings.count > 1 ? NotchAgentSupport.restingRingLine : 2)
-                            .frame(width: NotchAgentSupport.restingRingSide,
-                                   height: NotchAgentSupport.restingRingSide)
+                    NotchAgentRing(value: used ? limit.window.usedFraction : limit.window.remainingFraction,
+                                   tint: agentLimitTint(limit.provider, usedFraction: limit.window.usedFraction),
+                                   lineWidth: 2)
+                        .frame(width: NotchAgentSupport.restingRingSide,
+                               height: NotchAgentSupport.restingRingSide)
+                    HStack(spacing: NotchAgentSupport.restingDotGap) {
+                        ForEach(readings.dropFirst(), id: \.provider) { reading in
+                            Circle()
+                                .fill(agentLimitTint(reading.provider, usedFraction: reading.window.usedFraction))
+                                .frame(width: NotchAgentSupport.restingDotSide,
+                                       height: NotchAgentSupport.restingDotSide)
+                        }
                     }
                 }
                 .accessibilityElement(children: .ignore)
